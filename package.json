@@ -3,7 +3,7 @@
   "author": "stagas",
   "short": "stagas/puppito",
   "description": "Start devito along with a puppeteer connection to it.",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "license": "MIT",
   "repository": {
     "type": "git",
