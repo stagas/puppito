@@ -78,7 +78,6 @@
   "dependencies": {
     "devito": "^2.0.0",
     "puppeteer": "15.5.0",
-    "puppeteer-pretty-console": "^1.1.0",
-    "source-map-support": "*"
+    "puppeteer-pretty-console": "^1.1.0"
   }
 }
