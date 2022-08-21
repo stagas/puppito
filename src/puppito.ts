@@ -1,6 +1,10 @@
-import { devito, DevitoOptions } from 'devito'
-import puppeteer, { PuppeteerLaunchOptions } from 'puppeteer'
+import { clearDevitoCaches, devito, DevitoOptions, FS_PREFIX } from 'devito'
+import puppeteer, { Browser, Frame, Page, PuppeteerLaunchOptions } from 'puppeteer'
 import pretty, { print } from 'puppeteer-pretty-console'
+
+export { clearDevitoCaches, FS_PREFIX }
+
+export type { Browser, Frame, Page, puppeteer }
 
 export class PuppitoOptions extends DevitoOptions {
   headless = true
@@ -8,18 +12,32 @@ export class PuppitoOptions extends DevitoOptions {
   /** Puppeteer launch options */
   puppeteer: PuppeteerLaunchOptions = {}
 
+  /** Transform console output */
+  transformArgs?: (args: any[], originUrl: string) => Promise<any[]>
+
   /** Filter console output */
-  consoleFilter?: (args: any[]) => any[]
+  failedRequestFilter?: (msg: string) => boolean
 
   /** Silence browser output. */
   browserQuiet = false
+
+  silent = false
 
   /** Print puppeteer page errors with console.error(). */
   printPageErrors = false
 
   constructor(options: Partial<DevitoOptions> = {}) {
     super(options)
+    this.inlineSourceMaps = true
+    this.cache = false
+    this.puppeteer.defaultViewport = {
+      width: 640,
+      height: 480,
+      deviceScaleFactor: 2,
+    }
     Object.assign(this, options)
+    this.puppeteer.args ??= []
+    this.puppeteer.args.push('--window-size=640,480')
   }
 }
 
@@ -41,7 +59,6 @@ export async function puppito(partialOptions: Partial<PuppitoOptions> = {}) {
       '--disable-translate',
       '--no-default-browser-check',
       '--no-first-run',
-      // '--single-process',
       '--ignore-certificate-errors',
       '--allow-insecure-localhost',
       '--use-fake-device-for-media-stream',
@@ -53,22 +70,20 @@ export async function puppito(partialOptions: Partial<PuppitoOptions> = {}) {
   const browser = await puppeteer.launch(options.puppeteer)
 
   const close = async () => {
-    // flush console up to this point
     await flush()
 
-    // wait for console to flush
     await new Promise(resolve => setTimeout(resolve, 20))
 
     try {
-      !options.quiet && console.log('shutting down browser')
-      await browser.close()
-      !options.quiet && console.log('browser shut down')
+      await page.close()
     } catch {}
 
     try {
-      !options.quiet && console.log('shutting down server...')
+      await browser.close()
+    } catch {}
+
+    try {
       await server.close()
-      !options.quiet && console.log('server shut down')
     } catch {}
   }
 
@@ -88,7 +103,7 @@ export async function puppito(partialOptions: Partial<PuppitoOptions> = {}) {
   }
 
   if (!options.browserQuiet) {
-    pretty(page, options.consoleFilter)
+    pretty(page, options.transformArgs, options.failedRequestFilter, options.silent)
   }
 
   return {
