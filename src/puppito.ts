@@ -21,12 +21,16 @@ export class PuppitoOptions extends DevitoOptions {
   /** Silence browser output. */
   browserQuiet = false
 
+  /** Custom console object. */
+  console = globalThis.console
+
+  /** Completely disable console. */
   silent = false
 
   /** Print puppeteer page errors with console.error(). */
   printPageErrors = false
 
-  constructor(options: Partial<DevitoOptions> = {}) {
+  constructor(options: Partial<PuppitoOptions> = {}) {
     super(options)
     this.inlineSourceMaps = true
     this.cache = false
@@ -51,6 +55,7 @@ export async function puppito(partialOptions: Partial<PuppitoOptions> = {}) {
   options.puppeteer.args = [
     ...new Set([
       ...options.puppeteer.args,
+      '--js-flags=--expose-gc',
       '--disable-background-timer-throttling',
       '--disable-default-apps',
       '--disable-device-discovery-notifications',
@@ -76,34 +81,47 @@ export async function puppito(partialOptions: Partial<PuppitoOptions> = {}) {
 
     try {
       await page.close()
-    } catch {}
+    } catch { }
 
     try {
       await browser.close()
-    } catch {}
+    } catch { }
 
     try {
       await server.close()
-    } catch {}
+    } catch { }
   }
 
   const flush = async () => {
     // by awaiting a void print call, we essentially wait
     // for the console queue to flush
-    await print(async () => {})
+    await print(async () => { })
   }
 
   const pages = await browser.pages()
   const page = pages[0]
 
   if (options.printPageErrors) {
-    page.on('error', console.error)
-    page.on('pageerror', console.error)
-    page.on('requestfailed', console.error)
+    page.on('error', options.console.error)
+    page.on('pageerror', options.console.error)
+    page.on('requestfailed', options.console.error)
   }
 
   if (!options.browserQuiet) {
-    pretty(page, options.transformArgs, options.failedRequestFilter, options.silent)
+    const console: any = options.silent
+      ? {
+        clear() { },
+        groupCollapsed() { },
+        groupEnd() { },
+        group() { },
+        error() { },
+        table() { },
+        log() { },
+        warn() { },
+      }
+      : options.console
+
+    pretty(page, options.transformArgs, options.failedRequestFilter, console)
   }
 
   return {
