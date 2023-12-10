@@ -1,1 +1,1 @@
-export * from './puppito'
+export * from './puppito.ts'

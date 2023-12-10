@@ -35,13 +35,13 @@ export class PuppitoOptions extends DevitoOptions {
     this.inlineSourceMaps = true
     this.cache = false
     this.puppeteer.defaultViewport = {
-      width: 640,
-      height: 480,
+      width: 1024,
+      height: 600,
       deviceScaleFactor: 2,
     }
     Object.assign(this, options)
     this.puppeteer.args ??= []
-    this.puppeteer.args.push('--window-size=640,480')
+    this.puppeteer.args.push('--window-size=1024,600', '--window-position=-50,70')
   }
 }
 
@@ -56,14 +56,18 @@ export async function puppito(partialOptions: Partial<PuppitoOptions> = {}) {
     ...new Set([
       ...options.puppeteer.args,
       '--js-flags=--expose-gc',
-      '--disable-background-timer-throttling',
+      '--enable-features=WebUIDarkMode',
+      '--force-dark-mode',
       '--disable-default-apps',
       '--disable-device-discovery-notifications',
       '--disable-popup-blocking',
       '--disable-renderer-backgrounding',
+      '--disable-background-timer-throttling',
+      '--disable-backgrounding-occluded-windows',
       '--disable-translate',
       '--no-default-browser-check',
       '--no-first-run',
+      '--suppress-message-center-popups',
       '--ignore-certificate-errors',
       '--allow-insecure-localhost',
       '--use-fake-device-for-media-stream',
@@ -98,36 +102,42 @@ export async function puppito(partialOptions: Partial<PuppitoOptions> = {}) {
     await print(async () => { })
   }
 
-  const pages = await browser.pages()
-  const page = pages[0]
+  async function newPage() {
+    const page = await browser.newPage()
 
-  if (options.printPageErrors) {
-    page.on('error', options.console.error)
-    page.on('pageerror', options.console.error)
-    page.on('requestfailed', options.console.error)
+    if (options.printPageErrors) {
+      page.on('error', options.console.error)
+      page.on('pageerror', options.console.error)
+      page.on('requestfailed', options.console.error)
+    }
+
+    if (!options.browserQuiet) {
+      const console: any = options.silent
+        ? {
+          clear() { },
+          groupCollapsed() { },
+          groupEnd() { },
+          group() { },
+          error() { },
+          table() { },
+          log() { },
+          warn() { },
+        }
+        : options.console
+
+      pretty(page, options.transformArgs, options.failedRequestFilter, console)
+    }
+
+    return page
   }
 
-  if (!options.browserQuiet) {
-    const console: any = options.silent
-      ? {
-        clear() { },
-        groupCollapsed() { },
-        groupEnd() { },
-        group() { },
-        error() { },
-        table() { },
-        log() { },
-        warn() { },
-      }
-      : options.console
-
-    pretty(page, options.transformArgs, options.failedRequestFilter, console)
-  }
+  const page = await newPage()
 
   return {
     server,
     browser,
     page,
+    newPage,
     close,
     flush,
   }
